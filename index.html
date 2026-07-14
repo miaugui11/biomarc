@@ -1,0 +1,784 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biomarc - Laboratorio Clínico (Perú)</title>
+    <!-- Tailwind CSS para diseño moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- jsPDF para generación de PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800">
+
+    <!-- Encabezado / Navbar -->
+    <header class="bg-blue-600 text-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-microscope text-3xl"></i>
+                <span class="text-2xl font-bold tracking-wider">BIOMARC</span>
+            </div>
+            
+            <!-- Botón de Estado de Administrador -->
+            <div id="admin-status" class="flex items-center space-x-3">
+                <span id="badge-rol" class="bg-blue-800 text-xs px-3 py-1 rounded-full font-medium">Modo Lector</span>
+                <button id="btn-login" onclick="abrirModalLogin()" class="bg-white text-blue-600 px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-50 transition">
+                    <i class="fa-solid fa-lock mr-1"></i> Admin Login
+                </button>
+                <button id="btn-logout" onclick="logout()" class="hidden bg-red-500 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-red-600 transition">
+                    <i class="fa-solid fa-sign-out mr-1"></i> Salir
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Menú de Pestañas -->
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div class="container mx-auto px-4 flex space-x-1">
+            <button onclick="cambiarPestaña('analisis')" id="tab-analisis" class="px-6 py-4 border-b-2 border-blue-600 text-blue-600 font-medium text-sm flex items-center space-x-2 transition">
+                <i class="fa-solid fa-vial"></i> <span>Análisis Disponibles</span>
+            </button>
+            <button onclick="cambiarPestaña('registro')" id="tab-registro" class="px-6 py-4 border-b-2 border-transparent text-slate-500 hover:text-blue-600 hover:border-slate-300 font-medium text-sm flex items-center space-x-2 transition">
+                <i class="fa-solid fa-user-plus"></i> <span>Registro de Pacientes</span>
+            </button>
+            <button onclick="cambiarPestaña('resultados')" id="tab-resultados" class="px-6 py-4 border-b-2 border-transparent text-slate-500 hover:text-blue-600 hover:border-slate-300 font-medium text-sm flex items-center space-x-2 transition">
+                <i class="fa-solid fa-square-poll-horizontal"></i> <span>Resultados</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <main class="container mx-auto px-4 py-8 max-w-6xl">
+
+        <!-- SECCIÓN 1: ANÁLISIS DISPONIBLES -->
+        <section id="sec-analisis" class="space-y-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Catálogo de Análisis Clínicos</h2>
+                    <p class="text-slate-500 text-sm">Lista de pruebas disponibles y tarifas vigentes en Soles (S/).</p>
+                </div>
+                <!-- Solo Admin puede añadir análisis -->
+                <button onclick="abrirModalAnalisis()" class="admin-only hidden bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow">
+                    <i class="fa-solid fa-plus mr-1"></i> Agregar Análisis
+                </button>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                            <th class="px-6 py-4">Código</th>
+                            <th class="px-6 py-4">Nombre del Análisis</th>
+                            <th class="px-6 py-4">Tiempo de Entrega</th>
+                            <th class="px-6 py-4 text-right">Precio (S/)</th>
+                            <th class="px-6 py-4 text-center admin-only hidden">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-analisis-cuerpo" class="divide-y divide-slate-100 text-sm">
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+
+        <!-- SECCIÓN 2: REGISTRO DE PACIENTES -->
+        <section id="sec-registro" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Formulario de Registro -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
+                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                    <i class="fa-solid fa-address-card text-blue-600 mr-2"></i> Nuevo Registro
+                </h3>
+                <form id="form-paciente" onsubmit="registrarPaciente(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nombre Completo del Paciente</label>
+                        <input type="text" id="pac-nombre" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">DNI (8 dígitos)</label>
+                        <input type="text" id="pac-dni" pattern="[0-9]{8}" placeholder="Ej: 45678912" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Celular (WhatsApp - sin espacios)</label>
+                        <input type="tel" id="pac-celular" placeholder="Ej: 999888777" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Análisis a Solicitar</label>
+                        <div id="pac-analisis-check" class="space-y-2 max-h-48 overflow-y-auto p-2 border border-slate-200 rounded-lg">
+                            <!-- Se llena dinámicamente -->
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow">
+                        Registrar y Generar Boleta
+                    </button>
+                </form>
+            </div>
+
+            <!-- Lista de Pacientes Registrados -->
+            <div class="lg:col-span-2 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-slate-900">Pacientes Ingresados</h3>
+                    <span class="text-xs text-slate-400">Seleccione un paciente para imprimir boleta</span>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                                <th class="px-6 py-4">Paciente</th>
+                                <th class="px-6 py-4">DNI</th>
+                                <th class="px-6 py-4">Celular</th>
+                                <th class="px-6 py-4 text-right">Total (S/)</th>
+                                <th class="px-6 py-4 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-pacientes-cuerpo" class="divide-y divide-slate-100 text-sm">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- SECCIÓN 3: RESULTADOS (Acceso público con acciones administrativas protegidas) -->
+        <section id="sec-resultados" class="hidden space-y-6">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-900">Módulo de Resultados Clínicos</h2>
+                <p class="text-slate-500 text-sm">Consulta de estado de exámenes. Los médicos y administradores pueden capturar datos clínicos.</p>
+            </div>
+
+            <!-- Tabla de Resultados siempre visible -->
+            <div id="contenedor-resultados" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                            <th class="px-6 py-4">Paciente</th>
+                            <th class="px-6 py-4">Exámenes Solicitados</th>
+                            <th class="px-6 py-4">Estado</th>
+                            <th class="px-6 py-4 text-center">Acciones Clínicas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-resultados-cuerpo" class="divide-y divide-slate-100 text-sm">
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL 1: LOGIN ADMINISTRADOR -->
+    <div id="modal-login" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4 m-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-shield-halved text-blue-600 mr-2"></i>Acceso Admin</h3>
+                <button onclick="cerrarModalLogin()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Usuario</label>
+                    <input type="text" id="login-user" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="admin">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Contraseña</label>
+                    <input type="password" id="login-pass" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••">
+                </div>
+                <div id="login-error" class="text-xs text-red-600 hidden">Credenciales incorrectas. Pruebe admin / admin123</div>
+            </div>
+            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm transition">
+                Ingresar Sistema
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CREAR ANÁLISIS (SÓLO ADMIN) -->
+    <div id="modal-analisis" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4 m-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-vial text-green-600 mr-2"></i>Nuevo Análisis</h3>
+                <button onclick="cerrarModalAnalisis()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Código único</label>
+                    <input type="text" id="an-codigo" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none" placeholder="Ej: HEM-01">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nombre del Análisis</label>
+                    <input type="text" id="an-nombre" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none" placeholder="Ej: Hemograma Completo">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Tiempo de Entrega</label>
+                    <input type="text" id="an-tiempo" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none" placeholder="Ej: 12 Horas">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Precio (S/)</label>
+                    <input type="number" step="0.10" id="an-precio" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none" placeholder="Ej: 35.00">
+                </div>
+            </div>
+            <button onclick="guardarNuevoAnalisis()" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-sm transition">
+                Añadir al Catálogo
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 3: CAPTURA DE RESULTADOS -->
+    <div id="modal-captura-resultados" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 m-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-file-medical text-blue-600 mr-2"></i>Captura de Resultados</h3>
+                <button onclick="cerrarModalResultados()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-slate-700" id="res-paciente-nombre"></p>
+                <p class="text-xs text-slate-500" id="res-paciente-datos"></p>
+            </div>
+            <div id="campos-analisis-resultados" class="space-y-4 border-t pt-4">
+                <!-- Se inyectarán dinámicamente inputs por cada análisis contratado -->
+            </div>
+            <button onclick="guardarResultadosPaciente()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow">
+                Guardar y Validar Exámenes
+            </button>
+        </div>
+    </div>
+
+    <!-- SCRIPT DE COMPORTAMIENTO Y LÓGICA -->
+    <script>
+        // Configuración y Datos Iniciales en memoria local
+        const CREDENCIALES = { usuario: "admin", contrasena: "admin123" };
+        let esAdmin = false; // Variable volátil en sesión temporal de JS
+
+        // Base de Datos de ejemplo en Soles Peruanos (S/)
+        const analisisSemilla = [
+            { codigo: 'HEM01', nombre: 'Hemograma Completo', tiempo: '12 Horas', precio: 35.00 },
+            { codigo: 'GLU02', nombre: 'Glucosa en Sangre', tiempo: '8 Horas', precio: 15.00 },
+            { codigo: 'PER03', nombre: 'Perfil Lipídico completo', tiempo: '24 Horas', precio: 65.00 },
+            { codigo: 'URI04', nombre: 'Examen Completo de Orina', tiempo: '6 Horas', precio: 20.00 },
+            { codigo: 'CRE05', nombre: 'Creatinina en suero', tiempo: '12 Horas', precio: 18.00 }
+        ];
+
+        let analisis = JSON.parse(localStorage.getItem('biomarc_analisis')) || analisisSemilla;
+        let pacientes = JSON.parse(localStorage.getItem('biomarc_pacientes')) || [];
+
+        // Inicialización de la Web
+        document.addEventListener('DOMContentLoaded', () => {
+            actualizarLocalStorage();
+            renderizarAnalisis();
+            renderizarCheckboxAnalisis();
+            renderizarPacientes();
+            evaluarAccesoAdmin();
+        });
+
+        function actualizarLocalStorage() {
+            localStorage.setItem('biomarc_analisis', JSON.stringify(analisis));
+            localStorage.setItem('biomarc_pacientes', JSON.stringify(pacientes));
+        }
+
+        // Sistema de Rutas / Pestañas
+        function cambiarPestaña(tab) {
+            const tabs = ['analisis', 'registro', 'resultados'];
+            tabs.forEach(t => {
+                const b = document.getElementById(`tab-${t}`);
+                const s = document.getElementById(`sec-${t}`);
+                if (t === tab) {
+                    b.classList.add('border-blue-600', 'text-blue-600');
+                    b.classList.remove('border-transparent', 'text-slate-500');
+                    s.classList.remove('hidden');
+                } else {
+                    b.classList.remove('border-blue-600', 'text-blue-600');
+                    b.classList.add('border-transparent', 'text-slate-500');
+                    s.classList.add('hidden');
+                }
+            });
+        }
+
+        // Control de Sesión de Administrador
+        function evaluarAccesoAdmin() {
+            const adminViews = document.querySelectorAll('.admin-only');
+
+            if (esAdmin) {
+                document.getElementById('badge-rol').textContent = "Administrador";
+                document.getElementById('badge-rol').className = "bg-green-600 text-white text-xs px-3 py-1 rounded-full font-semibold";
+                document.getElementById('btn-login').classList.add('hidden');
+                document.getElementById('btn-logout').classList.remove('hidden');
+                
+                adminViews.forEach(el => el.classList.remove('hidden'));
+            } else {
+                document.getElementById('badge-rol').textContent = "Modo Lector";
+                document.getElementById('badge-rol').className = "bg-slate-400 text-white text-xs px-3 py-1 rounded-full";
+                document.getElementById('btn-login').classList.remove('hidden');
+                document.getElementById('btn-logout').classList.add('hidden');
+
+                adminViews.forEach(el => el.classList.add('hidden'));
+            }
+            renderizarAnalisis();
+            renderizarPacientes();
+            renderizarResultados();
+        }
+
+        function abrirModalLogin() { 
+            // Limpia los campos antes de que se use el modal
+            document.getElementById('login-user').value = '';
+            document.getElementById('login-pass').value = '';
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('modal-login').classList.remove('hidden'); 
+        }
+        function cerrarModalLogin() { 
+            document.getElementById('modal-login').classList.add('hidden'); 
+        }
+
+        function login() {
+            const userField = document.getElementById('login-user');
+            const passField = document.getElementById('login-pass');
+            const u = userField.value;
+            const p = passField.value;
+
+            if (u === CREDENCIALES.usuario && p === CREDENCIALES.contrasena) {
+                esAdmin = true;
+                
+                // Vacía los campos inmediatamente para que no queden expuestos ni guardados en el DOM
+                userField.value = '';
+                passField.value = '';
+                
+                cerrarModalLogin();
+                evaluarAccesoAdmin();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            esAdmin = false;
+            evaluarAccesoAdmin();
+        }
+
+        // Gestión de Análisis Clínicos
+        function renderizarAnalisis() {
+            const tbody = document.getElementById('tabla-analisis-cuerpo');
+            tbody.innerHTML = '';
+            analisis.forEach((an, index) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-mono font-semibold text-slate-600">${an.codigo}</td>
+                        <td class="px-6 py-4 font-medium text-slate-900">${an.nombre}</td>
+                        <td class="px-6 py-4 text-slate-500"><i class="fa-regular fa-clock mr-1"></i>${an.tiempo}</td>
+                        <td class="px-6 py-4 text-right font-bold text-slate-900">S/ ${an.precio.toFixed(2)}</td>
+                        <td class="px-6 py-4 text-center admin-only ${esAdmin ? '' : 'hidden'}">
+                            <button onclick="eliminarAnalisis(${index})" class="text-red-500 hover:text-red-700 transition">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderizarCheckboxAnalisis() {
+            const container = document.getElementById('pac-analisis-check');
+            container.innerHTML = '';
+            analisis.forEach(an => {
+                container.innerHTML += `
+                    <label class="flex items-center space-x-2 text-sm text-slate-700 p-1 hover:bg-slate-50 rounded cursor-pointer">
+                        <input type="checkbox" name="analisis-solicitados" value="${an.codigo}" class="rounded text-blue-600 focus:ring-blue-500">
+                        <span>${an.nombre} (S/ ${an.precio.toFixed(2)})</span>
+                    </label>
+                `;
+            });
+        }
+
+        function abrirModalAnalisis() { document.getElementById('modal-analisis').classList.remove('hidden'); }
+        function cerrarModalAnalisis() { document.getElementById('modal-analisis').classList.add('hidden'); }
+
+        function guardarNuevoAnalisis() {
+            const codigo = document.getElementById('an-codigo').value.trim();
+            const nombre = document.getElementById('an-nombre').value.trim();
+            const tiempo = document.getElementById('an-tiempo').value.trim();
+            const precio = parseFloat(document.getElementById('an-precio').value);
+
+            if (codigo && nombre && tiempo && !isNaN(precio)) {
+                analisis.push({ codigo, nombre, tiempo, precio });
+                actualizarLocalStorage();
+                renderizarAnalisis();
+                renderizarCheckboxAnalisis();
+                cerrarModalAnalisis();
+                // Limpiar campos
+                document.getElementById('an-codigo').value = '';
+                document.getElementById('an-nombre').value = '';
+                document.getElementById('an-tiempo').value = '';
+                document.getElementById('an-precio').value = '';
+            }
+        }
+
+        function eliminarAnalisis(index) {
+            if(confirm('¿Seguro que desea retirar este análisis del catálogo?')) {
+                analisis.splice(index, 1);
+                actualizarLocalStorage();
+                renderizarAnalisis();
+                renderizarCheckboxAnalisis();
+            }
+        }
+
+        // Gestión de Pacientes y Registro
+        function registrarPaciente(event) {
+            event.preventDefault();
+            const nombre = document.getElementById('pac-nombre').value.trim();
+            const dni = document.getElementById('pac-dni').value.trim();
+            let celular = document.getElementById('pac-celular').value.trim();
+            
+            const checkboxes = document.querySelectorAll('input[name="analisis-solicitados"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Debe seleccionar al menos un examen clínico para el paciente.');
+                return;
+            }
+
+            if (celular.length === 9 && celular.startsWith('9')) {
+                celular = '51' + celular;
+            }
+
+            const codigosSeleccionados = Array.from(checkboxes).map(cb => cb.value);
+            const itemsAnalisis = analisis.filter(an => codigosSeleccionados.includes(an.codigo));
+            const total = itemsAnalisis.reduce((acc, curr) => acc + curr.precio, 0);
+
+            const nuevoPaciente = {
+                id: Date.now(),
+                nombre,
+                dni,
+                celular,
+                analisis: itemsAnalisis.map(item => ({ ...item, resultado: null, unidad: 'mg/dL', rangoNormal: '70 - 100' })),
+                total,
+                fecha: new Date().toLocaleDateString('es-PE'),
+                estado: 'Pendiente'
+            };
+
+            pacientes.push(nuevoPaciente);
+            actualizarLocalStorage();
+            renderizarPacientes();
+            renderizarResultados();
+            
+            // Imprimir Boleta Inmediatamente
+            imprimirBoleta(nuevoPaciente.id);
+
+            // Resetear formulario
+            document.getElementById('form-paciente').reset();
+        }
+
+        function renderizarPacientes() {
+            const tbody = document.getElementById('tabla-pacientes-cuerpo');
+            tbody.innerHTML = '';
+            pacientes.forEach(pac => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-semibold text-slate-900">${pac.nombre}</td>
+                        <td class="px-6 py-4 font-mono text-slate-600">${pac.dni}</td>
+                        <td class="px-6 py-4 text-slate-500">${pac.celular}</td>
+                        <td class="px-6 py-4 text-right font-bold text-slate-900">S/ ${pac.total.toFixed(2)}</td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                <button onclick="imprimirBoleta(${pac.id})" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center space-x-1 bg-blue-50 px-2.5 py-1 rounded-md transition">
+                                    <i class="fa-solid fa-print"></i> <span>Boleta</span>
+                                </button>
+                                ${esAdmin ? `
+                                <button onclick="eliminarPaciente(${pac.id})" class="text-red-500 hover:text-red-700 bg-red-50 p-1.5 rounded-md transition">
+                                    <i class="fa-regular fa-trash-can"></i>
+                                </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function eliminarPaciente(pacienteId) {
+            if (confirm('¿Está completamente seguro de eliminar a este paciente de los registros? Esta acción no se puede deshacer.')) {
+                pacientes = pacientes.filter(p => p.id !== pacienteId);
+                actualizarLocalStorage();
+                renderizarPacientes();
+                renderizarResultados();
+            }
+        }
+
+        // Impresión de Boleta
+        function imprimirBoleta(pacienteId) {
+            const pac = pacientes.find(p => p.id === pacienteId);
+            if (!pac) return;
+
+            const ventanaImpresion = window.open('', '_blank');
+            let filasAnalisis = pac.analisis.map(an => `
+                <tr>
+                    <td style="padding: 8px 0; border-bottom: 1px dashed #ddd;">${an.nombre}</td>
+                    <td style="padding: 8px 0; text-align: right; border-bottom: 1px dashed #ddd;">S/ ${an.precio.toFixed(2)}</td>
+                </tr>
+            `).join('');
+
+            ventanaImpresion.document.write(`
+                <html>
+                <head>
+                    <title>Boleta_Biomarc_${pac.dni}</title>
+                    <style>
+                        body { font-family: 'Courier New', Courier, monospace; max-width: 320px; margin: 20px auto; color: #000; font-size: 13px; line-height: 1.4; }
+                        .text-center { text-align: center; }
+                        .bold { font-weight: bold; }
+                        .divider { border-top: 1px dashed #000; margin: 12px 0; }
+                    </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                    <div class="text-center">
+                        <h2 style="margin: 0;">BIOMARC S.A.C.</h2>
+                        <p style="margin: 4px 0;">Laboratorio Clínico de Confianza</p>
+                        <p style="font-size: 11px;">RUC: 20601234567<br>Av. Arequipa 1420 - Lima, Perú</p>
+                    </div>
+                    <div class="divider"></div>
+                    <div>
+                        <strong>Fecha:</strong> ${pac.fecha}<br>
+                        <strong>Paciente:</strong> ${pac.nombre}<br>
+                        <strong>DNI:</strong> ${pac.dni}<br>
+                        <strong>Celular:</strong> ${pac.celular}
+                    </div>
+                    <div class="divider"></div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #000;">
+                                <th style="text-align: left; padding-bottom: 6px;">Examen</th>
+                                <th style="text-align: right; padding-bottom: 6px;">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasAnalisis}
+                        </tbody>
+                    </table>
+                    <div class="divider"></div>
+                    <div style="text-align: right; font-size: 15px;">
+                        <span class="bold">TOTAL A PAGAR: S/ ${pac.total.toFixed(2)}</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="text-center" style="font-size: 11px; margin-top: 20px;">
+                        <p class="bold">¡Gracias por su preferencia!</p>
+                        <p>Conserve este ticket para recoger sus resultados clínicos</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            ventanaImpresion.document.close();
+        }
+
+
+        // Gestión de Resultados (Abierto al público)
+        let pacienteActualId = null;
+
+        function renderizarResultados() {
+            const tbody = document.getElementById('tabla-resultados-cuerpo');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            
+            pacientes.forEach(pac => {
+                const badgeColor = pac.estado === 'Completado' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
+                const examesSolicitados = pac.analisis.map(an => an.nombre).join(', ');
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-semibold text-slate-900">${pac.nombre}<br><span class="text-xs text-slate-500 font-mono">DNI: ${pac.dni}</span></td>
+                        <td class="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">${examesSolicitados}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${badgeColor}">${pac.estado}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex justify-center items-center space-x-2">
+                                <!-- Botón Captura/Escribir VISIBLE en modo lector -->
+                                <button onclick="abrirCapturaResultados(${pac.id})" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1">
+                                    <i class="fa-solid fa-file-signature"></i> <span>Escribir</span>
+                                </button>
+                                
+                                <!-- Botones de descarga y envío públicos si los resultados están completos -->
+                                ${pac.estado === 'Completado' ? `
+                                <button onclick="exportarPDF(${pac.id})" class="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1">
+                                    <i class="fa-solid fa-file-pdf"></i> <span>PDF</span>
+                                </button>
+                                <button onclick="enviarWhatsApp(${pac.id})" class="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1">
+                                    <i class="fa-brands fa-whatsapp text-sm"></i> <span>Enviar</span>
+                                </button>
+                                ` : '<span class="text-xs text-slate-400 italic">No disponible</span>'}
+
+                                <!-- Botón Eliminar protegido por admin -->
+                                ${esAdmin ? `
+                                <button onclick="eliminarPaciente(${pac.id})" class="text-red-500 hover:text-red-700 bg-red-50 p-1.5 rounded-md transition" title="Eliminar Paciente">
+                                    <i class="fa-regular fa-trash-can"></i>
+                                </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function abrirCapturaResultados(pacienteId) {
+            // Si el usuario no ha iniciado sesión como administrador, se le solicita login primero
+            if(!esAdmin) {
+                alert('Debe iniciar sesión como administrador para escribir resultados clínicos.');
+                abrirModalLogin();
+                return;
+            }
+            
+            pacienteActualId = pacienteId;
+            const pac = pacientes.find(p => p.id === pacienteId);
+            if (!pac) return;
+
+            document.getElementById('res-paciente-nombre').textContent = pac.nombre;
+            document.getElementById('res-paciente-datos').textContent = `DNI: ${pac.dni} | Celular: ${pac.celular}`;
+            
+            const container = document.getElementById('campos-analisis-resultados');
+            container.innerHTML = '';
+
+            pac.analisis.forEach((an, i) => {
+                container.innerHTML += `
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end border-b pb-3 border-slate-100">
+                        <div class="sm:col-span-1">
+                            <span class="text-xs font-semibold text-slate-600 uppercase block">${an.nombre}</span>
+                            <span class="text-[10px] text-slate-400">Ref: ${an.rangoNormal} ${an.unidad}</span>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-500 block">Resultado obtenido</label>
+                            <input type="text" id="val-res-${i}" value="${an.resultado || ''}" required placeholder="Ej: 85" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-1">
+                            <div>
+                                <label class="text-[10px] text-slate-500 block">Unidad</label>
+                                <input type="text" id="val-uni-${i}" value="${an.unidad || 'mg/dL'}" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs outline-none">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-500 block">Val. de Ref.</label>
+                                <input type="text" id="val-ref-${i}" value="${an.rangoNormal || ''}" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs outline-none">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('modal-captura-resultados').classList.remove('hidden');
+        }
+
+        function cerrarModalResultados() { document.getElementById('modal-captura-resultados').classList.add('hidden'); }
+
+        function guardarResultadosPaciente() {
+            if(!esAdmin) return;
+            const pac = pacientes.find(p => p.id === pacienteActualId);
+            if(!pac) return;
+
+            let completados = true;
+            pac.analisis.forEach((an, i) => {
+                const r = document.getElementById(`val-res-${i}`).value.trim();
+                const u = document.getElementById(`val-uni-${i}`).value.trim();
+                const f = document.getElementById(`val-ref-${i}`).value.trim();
+                
+                if (r === '') completados = false;
+                
+                an.resultado = r;
+                an.unidad = u;
+                an.rangoNormal = f;
+            });
+
+            pac.estado = completados ? 'Completado' : 'Incompleto';
+            actualizarLocalStorage();
+            renderizarResultados();
+            cerrarModalResultados();
+        }
+
+        // Exportación de Resultados Clínicos Oficiales a PDF
+        function exportarPDF(pacienteId) {
+            const pac = pacientes.find(p => p.id === pacienteId);
+            if (!pac) return;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Cabecera del Reporte Clínico
+            doc.setFont("Helvetica", "bold");
+            doc.setFontSize(22);
+            doc.setTextColor(37, 99, 235); // Azul Biomarc
+            doc.text("BIOMARC", 20, 25);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100, 116, 139);
+            doc.setFont("Helvetica", "normal");
+            doc.text("Laboratorio de Análisis Clínicos Automatizados", 20, 31);
+            doc.text("Av. Arequipa 1420, Lima | RUC: 20601234567", 20, 36);
+
+            // Línea divisora
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(1);
+            doc.line(20, 42, 190, 42);
+
+            // Información del Paciente
+            doc.setFontSize(11);
+            doc.setTextColor(51, 65, 85);
+            doc.setFont("Helvetica", "bold");
+            doc.text("DATOS DEL PACIENTE", 20, 52);
+            
+            doc.setFont("Helvetica", "normal");
+            doc.text(`Paciente: ${pac.nombre}`, 20, 60);
+            doc.text(`Identificación/DNI: ${pac.dni}`, 20, 66);
+            doc.text(`Fecha del Examen: ${pac.fecha}`, 130, 60);
+            doc.text(`Número Telefónico: ${pac.celular}`, 130, 66);
+
+            doc.line(20, 72, 190, 72);
+
+            // Cabecera Tabla Exámenes
+            doc.setFont("Helvetica", "bold");
+            doc.text("ANÁLISIS REALIZADO", 20, 82);
+            doc.text("RESULTADO", 100, 82);
+            doc.text("VALORES DE REFERENCIA", 140, 82);
+            doc.line(20, 85, 190, 85);
+
+            // Listado de Resultados
+            let y = 94;
+            doc.setFont("Helvetica", "normal");
+            pac.analisis.forEach(an => {
+                doc.text(an.nombre, 20, y);
+                doc.setFont("Helvetica", "bold");
+                doc.text(`${an.resultado || 'Pendiente'} ${an.unidad}`, 100, y);
+                doc.setFont("Helvetica", "normal");
+                doc.text(`${an.rangoNormal} ${an.unidad}`, 140, y);
+                y += 10;
+            });
+
+            // Pie de página
+            doc.line(20, 240, 190, 240);
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text("La interpretación de todo análisis corresponde de forma exclusiva al médico clínico tratante.", 20, 248);
+            
+            // Línea de Firma del Tecnólogo / Médico Patólogo
+            doc.setDrawColor(148, 163, 184);
+            doc.line(130, 220, 180, 220);
+            doc.setFont("Helvetica", "bold");
+            doc.text("Firma y Sello del Director Clínico", 133, 225);
+
+            // Guardar PDF en el ordenador
+            doc.save(`Resultado_Biomarc_${pac.dni}.pdf`);
+        }
+
+        // Envío Automático por WhatsApp
+        function enviarWhatsApp(pacienteId) {
+            const pac = pacientes.find(p => p.id === pacienteId);
+            if (!pac) return;
+
+            let mensaje = `Estimado(a) *${pac.nombre}*, Biomarc Laboratorio Clínico le informa que sus resultados ya están listos y validados.\n\n`;
+            mensaje += `*Resumen de Exámenes:*\n`;
+            
+            pac.analisis.forEach(an => {
+                mensaje += `• ${an.nombre}: *${an.resultado} ${an.unidad}* (Ref: ${an.rangoNormal})\n`;
+            });
+
+            mensaje += `\nSu informe clínico en formato PDF ha sido generado correctamente.`;
+
+            const mensajeCodificado = encodeURIComponent(mensaje);
+            const url = `https://wa.me/${pac.celular}?text=${mensajeCodificado}`;
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+</html>
